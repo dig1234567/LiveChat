@@ -7,13 +7,12 @@ import MessageInput from "./component/MessageInput";
 import MessageBubble from "./component/Message.Bubble";
 import "./App.css";
 
-const maintenance = true;
-
-if (maintenance) {
-  return <MaintenancePage />;
-}
-
 function App() {
+  const maintenance = true;
+
+  if (maintenance) {
+    return <MaintenancePage />;
+  }
   const [room, setRoom] = useState("");
   const [username, setUsername] = useState("");
   const [joined, setJoined] = useState(false);
