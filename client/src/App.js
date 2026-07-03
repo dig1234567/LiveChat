@@ -1,7 +1,7 @@
 import { useEffect, useState, useRef } from "react";
 import axios from "axios";
 import socket from "./socket";
-import MaintenancePage from "./pages/MaintenancePage";
+import MaintenancePage from "./component/MaintenancePage";
 import JoinRoom from "./component/JoinRoom";
 import MessageInput from "./component/MessageInput";
 import MessageBubble from "./component/Message.Bubble";
