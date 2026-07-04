@@ -1,5 +1,5 @@
 import MaintenancePage from "./component/MaintenancePage";
-import ChatApp from "./ChatApp";
+import ChatApp from "./component/ChatApp";
 
 function App() {
   const maintenance = true;
