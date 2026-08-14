@@ -1,6 +1,15 @@
 import React from "react";
+import { useNavigate } from "react-router-dom";
+import { useAuth } from "../context/AuthContext";
 
-const JoinRoom = ({ username, setUsername, room, setRoom, joinRoom }) => {
+const JoinRoom = ({ room, setRoom, joinRoom }) => {
+  const { logout } = useAuth();
+  const navigate = useNavigate();
+
+  const handleLogout = () => {
+    logout();
+    navigate("/");
+  };
   return (
     <div
       style={{
@@ -60,19 +69,6 @@ const JoinRoom = ({ username, setUsername, room, setRoom, joinRoom }) => {
           }}
         >
           <input
-            placeholder="👤 輸入你的名字"
-            value={username}
-            onChange={(e) => setUsername(e.target.value)}
-            style={{
-              padding: 15,
-              borderRadius: 12,
-              border: "1px solid #ddd",
-              fontSize: 16,
-              outline: "none",
-            }}
-          />
-
-          <input
             placeholder="🏠 輸入房間名稱"
             value={room}
             onChange={(e) => setRoom(e.target.value)}
@@ -100,6 +96,19 @@ const JoinRoom = ({ username, setUsername, room, setRoom, joinRoom }) => {
             }}
           >
             🚀 加入房間
+          </button>
+          <button
+            onClick={handleLogout}
+            style={{
+              marginTop: 15,
+              background: "transparent",
+              border: "none",
+              color: "#666",
+              cursor: "pointer",
+              fontSize: 15,
+            }}
+          >
+            🚪 登出
           </button>
         </div>
       </div>

@@ -1,14 +1,16 @@
+import { useAuth } from "../context/AuthContext";
 import { useEffect, useState, useRef } from "react";
 import axios from "axios";
-import socket from "./socket";
-import JoinRoom from "./component/JoinRoom";
-import MessageInput from "./component/MessageInput";
-import MessageBubble from "./component/Message.Bubble";
-import "./App.css";
+import socket from "../socket";
+import JoinRoom from "../component/JoinRoom";
+import MessageInput from "../component/MessageInput";
+import MessageBubble from "../component/Message.Bubble";
+import "../App.css";
+import { Navigate, useNavigate } from "react-router-dom";
 
 function ChatApp() {
+  const { currentUser } = useAuth();
   const [room, setRoom] = useState("");
-  const [username, setUsername] = useState("");
   const [joined, setJoined] = useState(false);
   const [onlineUsers, setOnlineUsers] = useState(0);
   const [selectedImage, setSelectedImage] = useState(null);
@@ -28,16 +30,19 @@ function ChatApp() {
   useEffect(() => {
     // 即時訊息
     socket.on("receive-message", (data) => {
-      console.log("收到訊息", data);
       if (!data) return;
+
       setMessages((prev) => [...prev, data]);
 
-      // 不是自己發的才算已讀
-      if (data.user !== username)
+      // currentUser 還沒載入就不要做已讀
+      if (!currentUser) return;
+
+      if (data.user !== currentUser.username) {
         socket.emit("message-read", {
           messageId: data._id,
           socketId: socket.id,
         });
+      }
     });
 
     // 歡迎訊息
@@ -132,11 +137,11 @@ function ChatApp() {
 
   // 加入房間
   const joinRoom = () => {
-    if (!room.trim() || !username.trim()) return;
+    if (!room.trim()) return;
 
     socket.emit("join-room", {
+      username: currentUser.username,
       room,
-      user: username,
     });
 
     setJoined(true);
@@ -148,7 +153,7 @@ function ChatApp() {
     }
     socket.emit("leave-room", {
       room,
-      user: username,
+      user: currentUser.username,
     });
 
     setJoined(false);
@@ -161,7 +166,7 @@ function ChatApp() {
     if (!message.trim()) return;
     socket.emit("send-message", {
       room,
-      user: username,
+      user: currentUser.username,
       text: message,
       replyTo: replyMessage,
     });
@@ -187,7 +192,7 @@ function ChatApp() {
       );
       socket.emit("send-image", {
         room,
-        user: username,
+        user: currentUser.username,
         imageUrl: res.data.imageUrl,
       });
       console.log("圖片已送出");
@@ -227,13 +232,7 @@ function ChatApp() {
         </>
       )}
       {!joined ? (
-        <JoinRoom
-          username={username}
-          setUsername={setUsername}
-          room={room}
-          setRoom={setRoom}
-          joinRoom={joinRoom}
-        />
+        <JoinRoom room={room} setRoom={setRoom} joinRoom={joinRoom} />
       ) : (
         <>
           <div className="room-header">
@@ -328,7 +327,7 @@ function ChatApp() {
                   <MessageBubble
                     key={i}
                     message={m}
-                    username={username}
+                    username={currentUser.username}
                     deleteMessage={deleteMessage}
                     editMessage={editMessage}
                     setPreviewImage={setPreviewImage}
@@ -437,7 +436,7 @@ function ChatApp() {
                 sendMessage={sendMessage}
                 sendImage={sendImage}
                 room={room}
-                username={username}
+                username={currentUser.username}
                 socket={socket}
               />
             </div>

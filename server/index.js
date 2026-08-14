@@ -8,11 +8,17 @@ const multer = require("multer");
 const { CloudinaryStorage } = require("multer-storage-cloudinary");
 const cloudinary = require("./config/cloudinary");
 const Message = require("./model/message-model");
+const auth = require("./router/auth");
 
 const app = express();
 const server = http.createServer(app);
 
 app.use(cors());
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
+
+//Router
+app.use("/api/user", auth);
 
 app.get("/", (req, res) => {
   res.send("🚀 LiveChat Backend is Running!");
