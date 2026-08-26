@@ -1,62 +1,101 @@
 import React, { useState } from "react";
+import "./auth.css";
 import authService from "../service/authService";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
+import { toast } from "react-toastify";
 
 const Register = () => {
   const navigate = useNavigate();
+
   const [username, setUsername] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
 
   const handleRegister = async (e) => {
     e.preventDefault();
+
     try {
       await authService.register({
         username,
         email,
         password,
       });
-      console.log("註冊成功...");
+
+      toast.success("註冊成功");
+
+      navigate("/");
     } catch (err) {
-      console.log(err); // 開發者除錯
+      console.log(err);
+      toast.error("註冊失敗");
     }
   };
 
   return (
-    <div>
-      <form onSubmit={handleRegister}>
-        <label htmlFor="username">用戶名稱</label>
-        <input
-          id="username"
-          type="text"
-          placeholder="英文名字或中文名字"
-          value={username}
-          onChange={(e) => setUsername(e.target.value)}
-          required
-        />
+    <div className="login-page">
+      {/* 左側 */}
+      <div className="login-left">
+        <div className="logo">💬</div>
 
-        <label htmlFor="email">電子信箱</label>
-        <input
-          id="email"
-          type="email"
-          placeholder="email@example.com"
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-          required
-        />
+        <h1>LiveChat</h1>
 
-        <label htmlFor="password">密碼</label>
-        <input
-          id="password"
-          type="password"
-          placeholder="長度至少 6 個字元"
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-          required
-        />
+        <p>
+          Join the community and
+          <br />
+          start chatting today.
+        </p>
 
-        <button type="submit">註冊會員</button>
-      </form>
+        <div className="feature">
+          <p>✅ Real-time Chat</p>
+          <p>🔒 Secure JWT Login</p>
+          <p>🖼 Image Sharing</p>
+          <p>⚡ Fast & Reliable</p>
+        </div>
+      </div>
+
+      {/* 右側 */}
+      <div className="login-right">
+        <div className="login-card">
+          <h2>Create Account ✨</h2>
+
+          <p className="subtitle">Create your LiveChat account</p>
+
+          <form onSubmit={handleRegister}>
+            <label>Username</label>
+
+            <input
+              type="text"
+              placeholder="Mike"
+              value={username}
+              onChange={(e) => setUsername(e.target.value)}
+            />
+
+            <label>Email</label>
+
+            <input
+              type="email"
+              placeholder="example@gmail.com"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+            />
+
+            <label>Password</label>
+
+            <input
+              type="password"
+              placeholder="At least 6 characters"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+            />
+
+            <button type="submit">Register</button>
+          </form>
+
+          <div className="register-link">
+            Already have an account?
+            <Link to="/">Login</Link>
+          </div>
+        </div>
+      </div>
     </div>
   );
 };

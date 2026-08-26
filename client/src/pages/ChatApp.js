@@ -7,6 +7,8 @@ import MessageInput from "../component/MessageInput";
 import MessageBubble from "../component/Message.Bubble";
 import "../App.css";
 import { Navigate, useNavigate } from "react-router-dom";
+import Swal from "sweetalert2";
+import { toast } from "react-toastify";
 
 function ChatApp() {
   const { currentUser } = useAuth();
@@ -140,20 +142,27 @@ function ChatApp() {
     if (!room.trim()) return;
 
     socket.emit("join-room", {
-      username: currentUser.username,
       room,
     });
 
     setJoined(true);
   };
 
-  const leaveRoom = () => {
-    if (!window.confirm("確定離開聊天室?")) {
-      return;
-    }
+  const leaveRoom = async () => {
+    const result = await Swal.fire({
+      title: "確定要離開聊天室嗎？",
+      text: `離開「${room}」後將不再收到訊息。`,
+      icon: "warning",
+      showCancelButton: true,
+      confirmButtonText: "確定離開",
+      cancelButtonText: "取消",
+      confirmButtonColor: "#d33",
+    });
+
+    if (!result.isConfirmed) return;
+
     socket.emit("leave-room", {
       room,
-      user: currentUser.username,
     });
 
     setJoined(false);
@@ -166,7 +175,6 @@ function ChatApp() {
     if (!message.trim()) return;
     socket.emit("send-message", {
       room,
-      user: currentUser.username,
       text: message,
       replyTo: replyMessage,
     });
@@ -192,7 +200,6 @@ function ChatApp() {
       );
       socket.emit("send-image", {
         room,
-        user: currentUser.username,
         imageUrl: res.data.imageUrl,
       });
       console.log("圖片已送出");
@@ -202,34 +209,55 @@ function ChatApp() {
     }
   };
 
-  const deleteMessage = (messageId) => {
-    const confirmDelete = window.confirm("確定要刪除這筆訊息嗎?");
+  const deleteMessage = async (messageId) => {
+    const result = await Swal.fire({
+      title: "確定刪除？",
+      text: "刪除後無法復原。",
+      icon: "warning",
+      showCancelButton: true,
+      confirmButtonText: "刪除",
+      cancelButtonText: "取消",
+      confirmButtonColor: "#d33",
+    });
 
-    if (!confirmDelete) {
+    if (!result.isConfirmed) {
       return;
     }
     socket.emit("delete-message", messageId);
+    toast.success("已刪除");
   };
 
-  const editMessage = (messageId, oldText) => {
-    const newText = prompt("修改訊息", oldText);
+  const editMessage = async (messageId, oldText) => {
+    const result = await Swal.fire({
+      title: "修改訊息",
+      input: "text",
+      inputValue: oldText,
+      showCancelButton: true,
+      confirmButtonText: "儲存",
+      cancelButtonText: "取消",
+    });
 
-    if (!newText) {
+    if (!result.isConfirmed) {
       return;
     }
     socket.emit("edit-message", {
       messageId,
-      text: newText,
+      text: result.value,
     });
+    toast.success("修改成功");
   };
 
   return (
     <div className="app-container">
       {joined && (
-        <>
+        <div className="chat-header">
           <h1>💬 即時聊天室</h1>
-          <h3>目前在線：{onlineUsers} 人</h3>
-        </>
+
+          <div className="header-status">
+            <span className="online-dot"></span>
+            <span>{onlineUsers} 人在線</span>
+          </div>
+        </div>
       )}
       {!joined ? (
         <JoinRoom room={room} setRoom={setRoom} joinRoom={joinRoom} />

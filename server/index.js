@@ -9,6 +9,8 @@ const { CloudinaryStorage } = require("multer-storage-cloudinary");
 const cloudinary = require("./config/cloudinary");
 const Message = require("./model/message-model");
 const auth = require("./router/auth");
+const jwt = require("jsonwebtoken");
+const { verify } = require("crypto");
 
 const app = express();
 const server = http.createServer(app);
@@ -62,6 +64,22 @@ const io = new Server(server, {
   },
 });
 
+io.use((socket, next) => {
+  try {
+    const token = socket.handshake.auth.token;
+
+    if (!token) {
+      return next(new Error("沒有token"));
+    }
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    console.log(decoded);
+    socket.user = decoded;
+    next();
+  } catch (err) {
+    next(new Error("Token 驗證失敗"));
+  }
+});
+
 //在線人數
 let onlineUsers = 0;
 const users = {};
@@ -72,7 +90,8 @@ io.on("connection", (socket) => {
   io.emit("online-users", onlineUsers);
   // 加入房間
   socket.on("join-room", async (data) => {
-    const { room, user } = data;
+    const room = data.room;
+    const user = socket.user.username;
     users[socket.id] = {
       socketId: socket.id,
       user,
@@ -97,9 +116,12 @@ io.on("connection", (socket) => {
 
   // 房間訊息
   socket.on("send-message", async (data) => {
-    const { room, user, text, replyTo } = data;
+    const { room, text, replyTo } = data;
+    const user = socket.user.username;
+
     console.log("replyTo", replyTo);
     console.log("socket rooms:", socket.rooms);
+
     const messageData = {
       room,
       user,
@@ -109,7 +131,6 @@ io.on("connection", (socket) => {
       readBy: [],
     };
 
-    // 🔥 存 MongoDB
     const newMessage = new Message(messageData);
 
     await newMessage.save();
@@ -126,7 +147,8 @@ io.on("connection", (socket) => {
       console.log("收到圖片事件");
       console.log(data);
 
-      const { room, user, imageUrl } = data;
+      const { room, imageUrl } = data;
+      const user = socket.user.username;
 
       const imageMessage = {
         room,

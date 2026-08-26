@@ -10,29 +10,18 @@ const MessageBubble = ({
   setReplyMessage,
 }) => {
   const [isHover, setIsHover] = useState(false); // 預設滑鼠沒有移動
+  const [highlight, setHighlight] = useState(false);
   if (!message) return null;
   if (message.system) {
-    return (
-      <div
-        style={{
-          textAlign: "center",
-          color: "#666",
-          fontSize: "12px",
-          margin: "10px 0",
-          background: "#f0f0f0",
-          padding: "5px 10px",
-          borderRadius: "10px",
-        }}
-      >
-        📢 {message.text}
-      </div>
-    );
+    return <div className="system-message">📢 {message.text}</div>;
   }
 
   const isMe = message.user === username;
 
   return (
     <div
+      id={`message-${message._id}`}
+      className={highlight ? "message-highlight" : ""}
       onMouseEnter={() => setIsHover(true)}
       onMouseLeave={() => setIsHover(false)}
       style={{
@@ -52,35 +41,21 @@ const MessageBubble = ({
           backgroundColor: isMe ? "#4f8cff" : "#fff",
         }}
       >
-        <div
-          style={{
-            fontSize: 11,
-            fontWeight: "bold",
-            color: "#666",
-            marginBottom: 8,
-          }}
-        >
-          {message.user}
-        </div>
-
-        <div
-          style={{
-            display: "flex",
-            justifyContent: "space-between",
-            alignItems: "center",
-            gap: 10,
-          }}
-        ></div>
+        <div className="message-user">{message.user}</div>
 
         {message.replyTo && (
           <div
-            style={{
-              background: "rgba(255,255,255,0.15)",
-              padding: "6px 8px",
-              borderRadius: 8,
-              marginBottom: 8,
-              fontSize: 12,
-              borderLeft: "3px solid #ffffff66",
+            className="reply-box"
+            onClick={() => {
+              const target = document.getElementById(
+                `message-${message.replyTo._id}`,
+              );
+              if (target) {
+                target.scrollIntoView({
+                  behavior: "smooth",
+                  block: "center",
+                });
+              }
             }}
           >
             <div
@@ -140,12 +115,7 @@ const MessageBubble = ({
         </div>
 
         {isHover && (
-          <div
-            style={{
-              display: "flex",
-              gap: 5,
-            }}
-          >
+          <div className="message-toolbar">
             <button
               onClick={() => setReplyMessage(message)}
               style={{
@@ -193,14 +163,7 @@ const MessageBubble = ({
           }}
         >
           <div
-            style={{
-              display: "flex",
-              justifyContent: "flex-end",
-              gap: 6,
-              marginTop: 6,
-              fontSize: 10,
-              color: isMe ? "#e0e0e0" : "#888",
-            }}
+            className={`message-footer ${isMe ? "my-footer" : "other-footer"}`}
           >
             {message.readBy?.length > 0 && (
               <span>✓ 已讀 {message.readBy.length}</span>

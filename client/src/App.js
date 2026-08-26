@@ -5,6 +5,8 @@ import Login from "./pages/login";
 import Register from "./pages/register";
 import { AuthProvider } from "./context/AuthContext";
 import ProtectedRoute from "./routes/ProtectedRoute";
+import { ToastContainer } from "react-toastify";
+import "react-toastify/dist/ReactToastify.css";
 
 function App() {
   const maintenance = false;
@@ -28,6 +30,15 @@ function App() {
             }
           />
         </Routes>
+        <ToastContainer
+          position="top-right"
+          autoClose={2500}
+          hideProgressBar={false}
+          newestOnTop
+          closeOnClick
+          pauseOnHover
+          theme="colored"
+        />
       </BrowserRouter>
     </AuthProvider>
   );
