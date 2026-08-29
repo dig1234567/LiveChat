@@ -6,6 +6,7 @@ import { useAuth } from "../context/AuthContext";
 import { FiEye, FiEyeOff } from "react-icons/fi";
 import { toast } from "react-toastify";
 import { FiLoader } from "react-icons/fi";
+import socket from "../socket";
 
 const Login = () => {
   const navigate = useNavigate();
