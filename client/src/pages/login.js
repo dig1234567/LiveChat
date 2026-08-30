@@ -32,6 +32,12 @@ const Login = () => {
 
       socket.connect();
 
+      socket.auth = {
+        token: data.token,
+      };
+
+      socket.connect();
+
       setCurrentUser(data.user);
 
       toast.success("登入成功");
