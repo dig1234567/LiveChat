@@ -9,7 +9,7 @@ import { ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 
 function App() {
-  const maintenance = false;
+  const maintenance = true;
 
   if (maintenance) {
     return <MaintenancePage />;
