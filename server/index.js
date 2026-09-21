@@ -88,6 +88,11 @@ io.on("connection", (socket) => {
   console.log("有人連線:", socket.id);
   onlineUsers++;
   io.emit("online-users", onlineUsers);
+
+  socket.on("typing", (data) => {
+    console.log("收到 typing:", data);
+    socket.to(data.room).emit("typing", data.user);
+  });
   // 加入房間
   socket.on("join-room", async (data) => {
     const room = data.room;
