@@ -77,8 +77,6 @@ router.get("/profile", verifyToken, async (req, res) => {
   try {
     const user = await User.findById(req.user._id);
 
-    console.log("查詢結果:", user);
-
     if (!user) {
       return res.status(404).send("找不到使用者");
     }
@@ -87,6 +85,55 @@ router.get("/profile", verifyToken, async (req, res) => {
       _id: user._id,
       username: user.username,
       email: user.email,
+      avatar: user.avatar,
+    });
+  } catch (err) {
+    console.log(err);
+    return res.status(500).send(err.message);
+  }
+});
+
+router.patch("/profile/avatar", verifyToken, async (req, res) => {
+  const { avatar } = req.body;
+
+  try {
+    const user = await User.findByIdAndUpdate(
+      req.user._id,
+      { avatar },
+      { new: true },
+    );
+
+    if (!user) {
+      return res.status(404).send("找不到使用者");
+    }
+
+    return res.send({
+      message: "頭像更新成功",
+      avatar: user.avatar,
+    });
+  } catch (err) {
+    console.log(err);
+    return res.status(500).send(err.message);
+  }
+});
+router.patch("/profile/avatar", verifyToken, async (req, res) => {
+  console.log("req.user:", req.user);
+  console.log("req.user._id:", req.user._id);
+
+  const { avatar } = req.body;
+
+  try {
+    const checkUser = await User.findById(req.user._id);
+
+    console.log("找到的 User:", checkUser);
+
+    if (!checkUser) {
+      return res.status(404).send("找不到使用者");
+    }
+
+    return res.send({
+      message: "找到使用者",
+      user: checkUser,
     });
   } catch (err) {
     console.log(err);

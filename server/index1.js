@@ -1,5 +1,3 @@
-let addidion = (a) => {
-  return a;
-};
-
-console.log(addidion(5));
+let friends = ["grace", "Mike", "Juson", "Wilson"];
+friends.shift();
+console.log(friends);

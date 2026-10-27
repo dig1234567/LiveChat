@@ -25,7 +25,7 @@ const Login = () => {
     try {
       const data = await authService.login(email, password);
 
-      localStorage.setItem("token", data.token);
+      sessionStorage.setItem("token", data.token);
       socket.auth = {
         token: data.token,
       };

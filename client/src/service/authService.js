@@ -15,7 +15,7 @@ class AuthService {
     return res.data;
   }
   async getProfile() {
-    const token = localStorage.getItem("token");
+    const token = sessionStorage.getItem("token");
 
     console.log("Token:", token);
 

@@ -33,6 +33,10 @@ const messageSchema = new mongoose.Schema({
     ref: "Message",
     default: null,
   },
+  avatar: {
+    type: String,
+    default: "",
+  },
 });
 
 module.exports = mongoose.model("Message", messageSchema);

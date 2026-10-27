@@ -9,6 +9,7 @@ const MessageInput = ({
   room,
   username,
   socket,
+  privateUser,
 }) => {
   const [showEmoji, setShowEmoji] = useState(false);
 
@@ -95,7 +96,6 @@ const MessageInput = ({
         }}
       >
         📷
-
         <input
           type="file"
           hidden
@@ -129,9 +129,7 @@ const MessageInput = ({
           e.currentTarget.style.transform = "scale(1.05)";
         }}
         onMouseLeave={(e) => {
-          e.currentTarget.style.background = showEmoji
-            ? "#e8f2ff"
-            : "#f3f4f6";
+          e.currentTarget.style.background = showEmoji ? "#e8f2ff" : "#f3f4f6";
           e.currentTarget.style.transform = "scale(1)";
         }}
       >
@@ -144,10 +142,13 @@ const MessageInput = ({
         onChange={(e) => {
           setMessage(e.target.value);
 
-          socket.emit("typing", {
-            room,
-            user: username,
-          });
+          // 只有公開聊天室才觸發 typing 事件
+          if (!privateUser) {
+            socket.emit("typing", {
+              room,
+              user: username,
+            });
+          }
         }}
         onKeyDown={handleKeyDown}
         placeholder="輸入訊息..."

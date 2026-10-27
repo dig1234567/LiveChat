@@ -28,7 +28,7 @@ const MessageBubble = ({
         display: "flex",
         justifyContent: isMe ? "flex-end" : "flex-start",
         alignItems: "flex-start",
-        gap: 10,
+        gap: 8,
         marginBottom: 16,
       }}
     >
@@ -173,7 +173,15 @@ const MessageBubble = ({
           </div>
         </div>
       </div>
-      {isMe && <div className="avatar">{message.user?.[0]?.toUpperCase()}</div>}
+      {isMe && (
+        <div className="avatar">
+          {message.avatar ? (
+            <img src={message.avatar} alt={`${message.user} 頭像`} />
+          ) : (
+            message.user?.[0]?.toUpperCase()
+          )}
+        </div>
+      )}
     </div>
   );
 };

@@ -8,6 +8,8 @@ const multer = require("multer");
 const { CloudinaryStorage } = require("multer-storage-cloudinary");
 const cloudinary = require("./config/cloudinary");
 const Message = require("./model/message-model");
+const User = require("./model/user-model");
+const PrivateMessage = require("./model/private-message-model");
 const auth = require("./router/auth");
 const jwt = require("jsonwebtoken");
 const { verify } = require("crypto");
@@ -90,20 +92,51 @@ io.on("connection", (socket) => {
   io.emit("online-users", onlineUsers);
 
   socket.on("typing", (data) => {
-    console.log("收到 typing:", data);
     socket.to(data.room).emit("typing", data.user);
   });
   // 加入房間
   socket.on("join-room", async (data) => {
+    console.log("join-room被呼叫", {
+      socketId: socket.id,
+      username: socket.user.username,
+      room: data.room,
+    });
     const room = data.room;
     const user = socket.user.username;
+    const userData = await User.findOne({ username: user });
+    Object.keys(users).forEach((socketId) => {
+      const u = users[socketId];
+
+      if (String(u.userId) === String(socket.user._id) && u.room === room) {
+        delete users[socketId];
+      }
+    });
     users[socket.id] = {
       socketId: socket.id,
       user,
       room,
+      avatar: userData?.avatar || "",
+      userId: userData._id,
     };
     socket.join(room);
+    //處理重新整理USER不見的問題
+    console.log("加入聊天室成功:", {
+      username: user,
+      userId: String(userData?._id),
+      socketId: socket.id,
+      room,
+    });
     const roomUsers = Object.values(users).filter((u) => u.room === room);
+
+    //處理重新整理USER不見的問題
+    console.log(
+      "即將廣播的 roomUsers:",
+      roomUsers.map((u) => ({
+        user: u.user,
+        userId: String(u.userId),
+        socketId: u.socketId,
+      })),
+    );
     io.to(room).emit("room-users", roomUsers);
     socket.emit("welcome", `歡迎加入 ${room}`);
     const messages = await Message.find({
@@ -121,17 +154,18 @@ io.on("connection", (socket) => {
 
   // 房間訊息
   socket.on("send-message", async (data) => {
-    const { room, text, replyTo } = data;
+    const { room, text, replyTo, avatar } = data;
     const user = socket.user.username;
 
-    console.log("replyTo", replyTo);
-    console.log("socket rooms:", socket.rooms);
+    console.log("發送訊息的 Socket:", socket.id);
+    console.log("發送訊息的登入者:", socket.user.username, socket.user._id);
 
     const messageData = {
       room,
       user,
       text,
       replyTo,
+      avatar,
       time: new Date().toLocaleTimeString(),
       readBy: [],
     };
@@ -145,6 +179,62 @@ io.on("connection", (socket) => {
     );
 
     io.to(room).emit("receive-message", populatedMessage);
+  });
+
+  // 私訊傳送
+  socket.on("send-private-message", async (data) => {
+    const { receiverId, text, imageUrl } = data;
+
+    console.log("送出私訊收到的 data:", data);
+    console.log("目前登入者:", socket.user._id);
+
+    const senderId = socket.user._id;
+
+    const privateMessage = new PrivateMessage({
+      sender: senderId,
+      receiver: receiverId,
+      text,
+      time: new Date().toLocaleTimeString(),
+      imageUrl,
+    });
+
+    await privateMessage.save();
+
+    console.log("私訊已儲存", privateMessage);
+
+    // 傳送給接收者
+    const receiverSocket = Object.values(users).find(
+      (u) => u.userId.toString() === receiverId.toString(),
+    );
+
+    if (receiverSocket) {
+      io.to(receiverSocket.socketId).emit(
+        "receive-private-message",
+        privateMessage,
+      );
+    }
+
+    // 將訊息同步回傳給傳送者
+    socket.emit("receive-private-message", privateMessage);
+  });
+
+  // 前端要求取得某兩個使用者之間的訊息, Socket事件
+  socket.on("get-private-messages", async (data) => {
+    const { receiverId } = data;
+    const senderId = socket.user._id;
+    console.log("目前登入者 ID:", socket.user._id);
+    console.log("選擇的對象 ID:", receiverId);
+
+    const messages = await PrivateMessage.find({
+      $or: [
+        { sender: senderId, receiver: receiverId },
+        { sender: receiverId, receiver: senderId },
+      ],
+    });
+
+    console.log("後端查到筆數:", messages.length);
+
+    socket.emit("private-messages", messages);
   });
 
   socket.on("send-image", async (data) => {
@@ -255,24 +345,29 @@ io.on("connection", (socket) => {
       const room = currentUser.room;
       const user = currentUser.user;
 
-      // 離開聊天室通知
-      io.to(room).emit("receive-message", {
-        system: true,
-        text: `${user} 離開聊天室`,
-        time: new Date().toLocaleTimeString(),
-      });
-
       delete users[socket.id];
+
+      const sameUserStillOnline = Object.values(users).some(
+        (u) => String(u.userId) === String(currentUser.userId),
+      );
 
       const roomUsers = Object.values(users).filter((u) => u.room === room);
 
       io.to(room).emit("room-users", roomUsers);
+
+      if (!sameUserStillOnline) {
+        io.to(room).emit("receive-message", {
+          system: true,
+          text: `${currentUser.user} 離開聊天室`,
+          time: new Date().toLocaleTimeString(),
+        });
+      }
     }
 
     onlineUsers--;
 
     io.emit("online-users", onlineUsers);
-    console.log("有人離線!!");
+    console.log("有人離線!!", socket.id, currentUser?.user);
   });
 });
 

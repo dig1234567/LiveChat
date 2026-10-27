@@ -10,7 +10,7 @@ export const AuthProvider = ({ children }) => {
   const [currentUser, setCurrentUser] = useState(null);
 
   const logout = () => {
-    localStorage.removeItem("token"); // 移除使用者c
+    sessionStorage.removeItem("token"); // 移除使用者c
     setCurrentUser(null);
   };
 
@@ -20,8 +20,8 @@ export const AuthProvider = ({ children }) => {
   useEffect(() => {
     const loadUser = async () => {
       try {
-        // 1. 看 localStorage 有沒有 token
-        const token = localStorage.getItem("token");
+        // 1. 看 sessionStorage 有沒有 token
+        const token = sessionStorage.getItem("token");
 
         // 2. 沒 token 就代表沒登入
         if (!token) {
@@ -38,7 +38,7 @@ export const AuthProvider = ({ children }) => {
         console.log(err);
 
         // token 已失效
-        localStorage.removeItem("token");
+        sessionStorage.removeItem("token");
       } finally {
         // 不管成功或失敗，都結束 loading
         setLoading(false);

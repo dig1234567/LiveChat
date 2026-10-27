@@ -12,8 +12,13 @@ import { toast } from "react-toastify";
 
 function ChatApp() {
   const { currentUser } = useAuth();
-  const [room, setRoom] = useState("");
-  const [joined, setJoined] = useState(false);
+  const [room, setRoom] = useState(
+    () => localStorage.getItem("chatRoom") || "",
+  );
+
+  const [joined, setJoined] = useState(
+    () => !!localStorage.getItem("chatRoom"),
+  );
   const [onlineUsers, setOnlineUsers] = useState(0);
   const [selectedImage, setSelectedImage] = useState(null);
   const [message, setMessage] = useState("");
@@ -23,8 +28,11 @@ function ChatApp() {
   const [messages, setMessages] = useState([]);
   // 🔥 房間成員
   const [roomUsers, setRoomUsers] = useState([]);
+  // 🔥 私訊狀態
+  const [privateMessages, setPrivateMessages] = useState([]);
   // typing
   const [typingUser, setTypingUser] = useState("");
+  const [privateUser, setPrivateUser] = useState(null);
 
   // 自動捲到底
   const bottomRef = useRef(null);
@@ -45,6 +53,21 @@ function ChatApp() {
           socketId: socket.id,
         });
       }
+    });
+
+    // 私訊對話顯示
+    socket.on("receive-private-message", (data) => {
+      setPrivateMessages((prev) => [...prev, data]);
+      const sender = roomUsers.find((user) => user.userId === data.sender);
+
+      if (sender) {
+        setPrivateUser(sender);
+      }
+    });
+
+    // 載入私訊訊息
+    socket.on("private-messages", (messages) => {
+      setPrivateMessages(messages);
     });
 
     // 歡迎訊息
@@ -130,6 +153,35 @@ function ChatApp() {
     };
   }, []);
 
+  useEffect(() => {
+    if (!joined) return;
+
+    const joinSocketRoom = () => {
+      console.log("準備加入聊天室:", {
+        username: socket.auth?.token ? "有 Token" : "沒有 Token",
+        socketId: socket.id,
+        connected: socket.connected,
+        room,
+        joined,
+      });
+      socket.emit("join-room", {
+        room,
+      });
+    };
+
+    if (socket.connected) {
+      joinSocketRoom();
+    } else {
+      socket.connect();
+    }
+
+    socket.on("connect", joinSocketRoom);
+
+    return () => {
+      socket.off("connect", joinSocketRoom);
+    };
+  }, [joined, room]);
+
   // 自動滑到底部
   useEffect(() => {
     bottomRef.current?.scrollIntoView({
@@ -141,9 +193,7 @@ function ChatApp() {
   const joinRoom = () => {
     if (!room.trim()) return;
 
-    socket.emit("join-room", {
-      room,
-    });
+    localStorage.setItem("chatRoom", room);
 
     setJoined(true);
   };
@@ -168,15 +218,26 @@ function ChatApp() {
     setJoined(false);
     setMessage([]);
     setRoomUsers([]);
+    localStorage.removeItem("chatRoom");
   };
 
   // 傳送訊息
   const sendMessage = () => {
     if (!message.trim()) return;
+
+    if (privateUser) {
+      socket.emit("send-private-message", {
+        receiverId: privateUser.userId,
+        text: message,
+      });
+      setMessage("");
+      return;
+    }
     socket.emit("send-message", {
       room,
       text: message,
       replyTo: replyMessage,
+      avatar: currentUser.avatar,
     });
 
     setMessage("");
@@ -191,18 +252,28 @@ function ChatApp() {
 
   const uploadImage = async () => {
     if (!selectedImage) return;
-    const formData = new FormData();
-    formData.append("image", selectedImage);
     try {
+      const formData = new FormData();
+      formData.append("image", selectedImage);
+      // 聊天室圖片
       const res = await axios.post(
         `${process.env.REACT_APP_API_URL}/upload`,
         formData,
       );
-      socket.emit("send-image", {
-        room,
-        imageUrl: res.data.imageUrl,
-      });
-      console.log("圖片已送出");
+      // 私訊聊天室圖片
+      if (privateUser) {
+        socket.emit("send-private-message", {
+          receiverId: privateUser.userId,
+          imageUrl: res.data.imageUrl,
+        });
+      } else {
+        // 公開聊天室圖片
+        socket.emit("send-image", {
+          room,
+          imageUrl: res.data.imageUrl,
+        });
+        console.log("圖片已送出");
+      }
       setSelectedImage(null);
     } catch (err) {
       console.log(err);
@@ -307,9 +378,40 @@ function ChatApp() {
             <div className="sidebar">
               <h4 className="sidebar-title">在線成員 ({roomUsers.length})</h4>
 
+              {/*私訊邏輯*/}
               {roomUsers.map((userObj) => (
                 <div
                   key={userObj.socketId}
+                  onClick={async () => {
+                    if (String(userObj.userId) === String(currentUser._id)) {
+                      Swal.fire({
+                        title: "無法私訊自己",
+                        text: "請選擇其他使用者",
+                        icon: "info",
+                        confirmButtonText: "知道了",
+                      });
+                      return;
+                    }
+                    const result = await Swal.fire({
+                      title: `要私訊 ${userObj.user} 嗎？`,
+                      text: "即將開啟與此使用者的私訊",
+                      icon: "question",
+                      showCancelButton: true,
+                      confirmButtonText: "開始私訊",
+                      cancelButtonText: "取消",
+                      confirmButtonColor: "#3085d6",
+                    });
+
+                    if (!result.isConfirmed) return;
+
+                    console.log("點到的使用者", userObj);
+
+                    setPrivateUser(userObj);
+
+                    socket.emit("get-private-messages", {
+                      receiverId: userObj.userId,
+                    });
+                  }}
                   style={{
                     display: "flex",
                     alignItems: "center",
@@ -333,7 +435,11 @@ function ChatApp() {
                   />
 
                   <div className="avatar">
-                    {userObj.user?.[0]?.toUpperCase()}
+                    {userObj.avatar ? (
+                      <img src={userObj.avatar} alt={`${userObj.user} 頭像`} />
+                    ) : (
+                      userObj.user?.[0]?.toUpperCase()
+                    )}
                   </div>
 
                   <div
@@ -350,28 +456,180 @@ function ChatApp() {
 
             {/* 聊天區 */}
             <div className="chat-content">
-              <div className="chat-box">
-                {messages.map((m, i) => (
-                  <MessageBubble
-                    key={i}
-                    message={m}
-                    username={currentUser.username}
-                    deleteMessage={deleteMessage}
-                    editMessage={editMessage}
-                    setPreviewImage={setPreviewImage}
-                    setReplyMessage={setReplyMessage}
-                  />
-                ))}
-
-                <p
+              {/*開啟私訊頁面*/}
+              {privateUser && (
+                <div
                   style={{
-                    color: "#666",
-                    fontSize: 14,
-                    marginTop: 10,
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "space-between",
+                    padding: "10px 16px",
+                    borderBottom: "1px solid #ddd",
                   }}
                 >
-                  {typingUser && `${typingUser} 正在輸入...`}
-                </p>
+                  <div
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 10,
+                    }}
+                  >
+                    <div className="avatar">
+                      {privateUser.avatar ? (
+                        <img
+                          src={privateUser.avatar}
+                          alt={`${privateUser.user} 頭像`}
+                        />
+                      ) : (
+                        privateUser.user?.[0]?.toUpperCase()
+                      )}
+                    </div>
+
+                    <strong>{privateUser.user}</strong>
+                  </div>
+
+                  <button
+                    onClick={() => {
+                      setPrivateUser(null);
+                      setPrivateMessages([]);
+                    }}
+                  >
+                    返回公開聊天室
+                  </button>
+                </div>
+              )}
+              {/*顯示聊天紀錄以及判斷是否要私訊*/}
+              <div className="chat-box">
+                {!privateUser && (
+                  <>
+                    {messages.map((m, i) => (
+                      <MessageBubble
+                        key={i}
+                        message={m}
+                        username={currentUser.username}
+                        deleteMessage={deleteMessage}
+                        editMessage={editMessage}
+                        setPreviewImage={setPreviewImage}
+                        setReplyMessage={setReplyMessage}
+                      />
+                    ))}
+
+                    <p
+                      style={{
+                        color: "#666",
+                        fontSize: 14,
+                        marginTop: 10,
+                      }}
+                    >
+                      {typingUser && `${typingUser} 正在輸入...`}
+                    </p>
+                  </>
+                )}
+
+                {privateUser &&
+                  privateMessages
+                    .filter((m) => {
+                      const senderId = String(m.sender?._id || m.sender);
+                      const receiverId = String(m.receiver?._id || m.receiver);
+
+                      const myId = String(currentUser._id);
+                      const partnerId = String(privateUser.userId);
+
+                      return (
+                        (senderId === myId && receiverId === partnerId) ||
+                        (senderId === partnerId && receiverId === myId)
+                      );
+                    })
+
+                    .map((m, i) => {
+                      const senderId = String(m.sender?._id || m.sender);
+                      const myId = String(currentUser._id);
+                      const isMine = senderId === myId;
+
+                      return (
+                        <div
+                          key={m._id || i}
+                          style={{
+                            display: "flex",
+                            justifyContent: isMine ? "flex-end" : "flex-start",
+                            alignItems: "flex-end",
+                            gap: 8,
+                            marginBottom: 12,
+                          }}
+                        >
+                          {!isMine && (
+                            <div className="avatar">
+                              {privateUser.avatar ? (
+                                <img
+                                  src={privateUser.avatar}
+                                  alt={`${privateUser.user} 頭像`}
+                                />
+                              ) : (
+                                privateUser.user?.[0]?.toUpperCase()
+                              )}
+                            </div>
+                          )}
+
+                          {/*私訊顯示時間和文字*/}
+                          <div
+                            style={{
+                              maxWidth: "70%",
+                              padding: "10px 14px",
+                              borderRadius: 16,
+                              background: isMine ? "#d9fdd3" : "#ffffff",
+                              color: "#222222",
+                              overflowWrap: "anywhere",
+                              boxShadow: "0 1px 3px rgba(0,0,0,0.12)",
+                            }}
+                          >
+                            {m.imageUrl && (
+                              <div
+                                style={{
+                                  marginBottom: 10,
+                                  padding: 5,
+                                  borderRadius: 10,
+                                }}
+                              >
+                                <img
+                                  src={m.imageUrl}
+                                  alt="私訊圖片"
+                                  onClick={() => setPreviewImage(m.imageUrl)}
+                                  style={{
+                                    maxWidth: "100%",
+                                    maxHeight: 300,
+                                    borderRadius: 10,
+                                    cursor: "pointer",
+                                  }}
+                                />
+                              </div>
+                            )}
+                            <div
+                              style={{
+                                fontSize: 15,
+                                lineHeight: 1.5,
+                                color: "#222222",
+                              }}
+                            >
+                              {m.text}
+                            </div>
+
+                            {m.time && (
+                              <div
+                                style={{
+                                  fontSize: 12,
+                                  color: "#555555",
+                                  textAlign: "right",
+                                  marginTop: 6,
+                                  fontWeight: 500,
+                                }}
+                              >
+                                {m.time}
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
 
                 <div ref={bottomRef}></div>
               </div>
@@ -466,6 +724,7 @@ function ChatApp() {
                 room={room}
                 username={currentUser.username}
                 socket={socket}
+                privateUser={privateUser}
               />
             </div>
           </div>

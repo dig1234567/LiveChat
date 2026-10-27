@@ -6,6 +6,12 @@ const socket = io(process.env.REACT_APP_API_URL, {
   autoConnect: false,
 });
 
+const token = sessionStorage.getItem("token");
+
+if (token) {
+  socket.auth = { token };
+}
+
 socket.on("connect", () => {
   console.log("Socket Connected:", socket.id);
 });
